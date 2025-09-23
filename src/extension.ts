@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
+import { twi } from "tw-to-css";
 
 export function activate(context: vscode.ExtensionContext) {
   let matchTag: RegExpExecArray | null;
+  let editorInitialValue: string;
 
   const hoverProvider = vscode.languages.registerHoverProvider(
     [
@@ -18,14 +20,28 @@ export function activate(context: vscode.ExtensionContext) {
         const word = range ? document.getText(range) : "";
         const lineText = document.lineAt(position.line).text;
 
-        // </div> 이런 형태의 태그는 거르고 시작 태그 <div> 이런 형태의 태그만 추출
-        // 만약 한줄에 속성이 많아지면 <div 이렇게 끊길수 있기에 다음 라인을 계속 탐색
-
-        const tagPattern = /<\/?([A-Za-z][A-Za-z0-9-]*)/g;
+        const tagPattern = /<([A-Za-z][A-Za-z0-9-]*)/g;
         matchTag = tagPattern.exec(lineText);
         if (matchTag !== null) {
           if (matchTag[1] === word) {
             // 여기 부분이 시작 태그에 hover하면 실행되는 곳
+            if (lineText.includes("<") && lineText.includes(">")) {
+              // 모든 속성들이 다 존재한다.
+
+              if (lineText.includes("class")) {
+                // 그 중에서 class속성이 있다면
+                const classPattern = /(class|className)=(['"])([^'"]+)\2/;
+                const matchClass = classPattern.exec(lineText);
+                if (matchClass) {
+                  editorInitialValue = matchTag
+                    ? `${matchTag[1]} {\n  ${twi(matchClass[3])
+                        .split(";")
+                        .filter((m) => m)
+                        .join(";\n  ")};\n}`
+                    : "/* 새 스타일 작성 */";
+                }
+              }
+            }
             const markdown = new vscode.MarkdownString(
               `[CSS 편집기 열기](command:extension.openCssEditor)`
             );
@@ -48,10 +64,6 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.ViewColumn.Beside,
         { enableScripts: true, retainContextWhenHidden: true }
       );
-
-      const initialValue = matchTag
-        ? `${matchTag[1]} {\n  /* 여기에 CSS 작성 */\n}`
-        : "/* 새 스타일 작성 */";
 
       modalPanel.webview.html = `
         <!DOCTYPE html>
@@ -76,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
             require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.38.0/min/vs' }});
             require(['vs/editor/editor.main'], function() {
               const editor = monaco.editor.create(document.getElementById('editor'), {
-                value: \`${initialValue}\`,
+                value: \`${editorInitialValue}\`,
                 language: 'css',
                 theme: 'vs-dark',
                 automaticLayout: true,
