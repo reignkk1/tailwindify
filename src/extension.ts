@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { twi } from "tw-to-css";
+import { CssToTailwindTranslator } from "css-to-tailwind-translator";
 
 export function activate(context: vscode.ExtensionContext) {
   let matchTag: RegExpExecArray | null;
@@ -41,6 +42,28 @@ export function activate(context: vscode.ExtensionContext) {
                     : "/* 새 스타일 작성 */";
                 }
               }
+            } else if (lineText.includes("<") && !lineText.includes(">")) {
+              // 속성값이 많거나 길다면
+              let pline = position.line + 1;
+
+              const attr: string[] = [];
+
+              while (!document.lineAt(pline).text.includes(">")) {
+                if (document.lineAt(pline).text.includes("class")) {
+                  attr.push(document.lineAt(pline).text);
+                  break;
+                }
+                pline++;
+              }
+
+              editorInitialValue = matchTag
+                ? `${matchTag[1]} {\n  ${twi(attr[0].split("=")[1])
+                    .split(";")
+                    .filter((m) => m)
+                    .join(";\n  ")};\n}`
+                : "/* 새 스타일 작성 */";
+
+              console.log(CssToTailwindTranslator(editorInitialValue).data);
             }
             const markdown = new vscode.MarkdownString(
               `[CSS 편집기 열기](command:extension.openCssEditor)`
@@ -105,7 +128,7 @@ export function activate(context: vscode.ExtensionContext) {
       `;
 
       modalPanel.webview.onDidReceiveMessage((msg) => {
-        console.log(msg.css);
+        console.log(msg);
       });
     }
   );
