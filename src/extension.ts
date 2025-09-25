@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { twi } from "tw-to-css";
 import { CssToTailwindTranslator } from "css-to-tailwind-translator";
+import { toCssRule } from "./utils.js";
 
 export function activate(context: vscode.ExtensionContext) {
   let matchTag: RegExpExecArray | null;
@@ -35,10 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const matchClass = classPattern.exec(lineText);
                 if (matchClass) {
                   editorInitialValue = matchTag
-                    ? `${matchTag[1]} {\n  ${twi(matchClass[3])
-                        .split(";")
-                        .filter((m) => m)
-                        .join(";\n  ")};\n}`
+                    ? toCssRule(matchTag[1], matchClass[3])
                     : "/* 새 스타일 작성 */";
                 }
               }
@@ -57,13 +55,8 @@ export function activate(context: vscode.ExtensionContext) {
               }
 
               editorInitialValue = matchTag
-                ? `${matchTag[1]} {\n  ${twi(attr[0].split("=")[1])
-                    .split(";")
-                    .filter((m) => m)
-                    .join(";\n  ")};\n}`
+                ? toCssRule(matchTag[1], twi(attr[0].split("=")[1]))
                 : "/* 새 스타일 작성 */";
-
-              console.log(CssToTailwindTranslator(editorInitialValue).data);
             }
             const markdown = new vscode.MarkdownString(
               `[CSS 편집기 열기](command:extension.openCssEditor)`
@@ -112,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
             require(['vs/editor/editor.main'], function() {
               const editor = monaco.editor.create(document.getElementById('editor'), {
                 value: \`${editorInitialValue}\`,
-                language: 'css',
+                language: 'scss',
                 theme: 'vs-dark',
                 automaticLayout: true,
               });
@@ -128,7 +121,7 @@ export function activate(context: vscode.ExtensionContext) {
       `;
 
       modalPanel.webview.onDidReceiveMessage((msg) => {
-        console.log(msg);
+        console.log(CssToTailwindTranslator(msg.css).data[0].resultVal);
       });
     }
   );
